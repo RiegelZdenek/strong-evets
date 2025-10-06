@@ -171,7 +171,7 @@ class EventAggregator {
   private emitter = new EventEmitter();
   
   subscribe<T extends BaseEvent<any>>(
-    eventType: new () => T,
+    eventType: EventConstructor<T>,
     handler: (data: ArgsExtractor<T>) => void
   ) {
     this.emitter.on(eventType, handler);
@@ -179,7 +179,7 @@ class EventAggregator {
   }
   
   async publish<T extends BaseEvent<any>>(
-    eventType: new () => T,
+    eventType: EventConstructor<T>,
     data: ArgsExtractor<T>
   ) {
     return this.emitter.emitAsync(eventType, data);
