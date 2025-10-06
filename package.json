@@ -1,0 +1,48 @@
+{
+  "name": "strong-events",
+  "version": "1.0.0",
+  "description": "A strongly-typed event emitter for TypeScript with class-based event definitions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "prepublishOnly": "npm run build",
+    "dev": "tsc --watch"
+  },
+  "keywords": [
+    "typescript",
+    "events",
+    "event-emitter",
+    "type-safe",
+    "strongly-typed",
+    "class-based",
+    "event-system"
+  ],
+  "author": "RiegelZdenek",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RiegelZdenek/strong-evets.git"
+  },
+  "bugs": {
+    "url": "https://github.com/RiegelZdenek/strong-evets/issues"
+  },
+  "homepage": "https://github.com/RiegelZdenek/strong-evets#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
