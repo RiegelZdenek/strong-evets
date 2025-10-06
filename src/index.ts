@@ -1,5 +1,5 @@
 /**
- * Strong Events - A strongly-typed event emitter for TypeScript
+ * Safe Events - A type-safe event emitter for TypeScript
  * 
  * @packageDocumentation
  */

@@ -1,5 +1,5 @@
 {
-  "name": "strong-events",
+  "name": "safe-events",
   "version": "1.0.0",
   "description": "A strongly-typed event emitter for TypeScript with class-based event definitions",
   "main": "dist/index.js",
@@ -29,12 +29,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/RiegelZdenek/strong-evets.git"
+    "url": "https://github.com/RiegelZdenek/safe-events.git"
   },
   "bugs": {
-    "url": "https://github.com/RiegelZdenek/strong-evets/issues"
+    "url": "https://github.com/RiegelZdenek/safe-events/issues"
   },
-  "homepage": "https://github.com/RiegelZdenek/strong-evets#readme",
+  "homepage": "https://github.com/RiegelZdenek/safe-events#readme",
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",

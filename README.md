@@ -1,8 +1,8 @@
-# Strong Events 🎯
+# Safe Events 🎯
 
-A **strongly-typed event emitter** for TypeScript that uses class-based event definitions to provide complete type safety and an exceptional developer experience.
+A **type-safe event emitter** for TypeScript that uses class-based event definitions to provide complete type safety and an exceptional developer experience.
 
-[![npm version](https://badge.fury.io/js/strong-events.svg)](https://badge.fury.io/js/strong-events)
+[![npm version](https://badge.fury.io/js/safe-events.svg)](https://badge.fury.io/js/safe-events)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -21,13 +21,13 @@ A **strongly-typed event emitter** for TypeScript that uses class-based event de
 ### Installation
 
 ```bash
-npm install strong-events
+npm install safe-events
 ```
 
 ### Basic Usage
 
 ```typescript
-import { EventEmitter, BaseEvent } from 'strong-events';
+import { EventEmitter, BaseEvent } from 'safe-events';
 
 // Define your event data types
 interface IUser {
@@ -62,7 +62,7 @@ emitter.emit(UserCreatedEvent, {
 emitter.emit(UserDeletedEvent, { userId: '123' });
 ```
 
-## 🎯 Why Strong Events?
+## 🎯 Why Safe Events?
 
 ### Before (Traditional Event Emitters)
 
@@ -76,7 +76,7 @@ emitter.on('user:created', (data: any) => {
 emitter.emit('user:create', userData); // Typo! Should be 'user:created'
 ```
 
-### After (Strong Events)
+### After (Safe Events)
 
 ```typescript
 // ✅ Class-based - impossible to typo
@@ -113,10 +113,10 @@ class MyEvent extends BaseEvent<{ message: string }> {}
 
 ## 🔄 Async Support
 
-Strong Events provides excellent async support:
+Safe Events provides excellent async support:
 
 ```typescript
-import { EventEmitter, BaseEvent } from 'strong-events';
+import { EventEmitter, BaseEvent } from 'safe-events';
 
 class FileProcessedEvent extends BaseEvent<{ filename: string }> {}
 
@@ -189,7 +189,7 @@ class EventAggregator {
 
 ## 🛡️ Error Handling
 
-Strong Events is designed to be resilient:
+Safe Events is designed to be resilient:
 
 ```typescript
 emitter.on(MyEvent, (data) => {
@@ -206,7 +206,7 @@ console.log(success); // false - indicates an error occurred
 
 ## 📊 Performance
 
-Strong Events is designed for performance:
+Safe Events is designed for performance:
 
 - **Lightweight**: No external dependencies
 - **Efficient**: Uses Maps for O(1) listener lookup
