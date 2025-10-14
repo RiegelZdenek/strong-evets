@@ -23,7 +23,7 @@
    ```bash
    git init
    git add .
-   git commit -m "Initial commit: Safe Events v1.0.0"
+   git commit -m "Initial commit: Strong Events v1.0.0"
    ```
 
 3. **Publish to npm:**
@@ -33,10 +33,10 @@
    ```
 
 4. **Create GitHub repository:**
-   - Go to GitHub and create a new repository named `safe-events`
+   - Go to GitHub and create a new repository named `strong-events`
    - Push your local repository:
    ```bash
-   git remote add origin https://github.com/RiegelZdenek/safe-events.git
+   git remote add origin https://github.com/RiegelZdenek/strong-events.git
    git branch -M main
    git push -u origin main
    ```

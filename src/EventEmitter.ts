@@ -81,7 +81,7 @@ export interface IEmitsEvents{
  * 
  * @example
  * ```typescript
- * import { EventEmitter, BaseEvent } from 'safe-events';
+ * import { EventEmitter, BaseEvent } from '@beautiful-types/strong-events';
  * 
  * interface IUser { name: string; age: number; }
  * class UserCreatedEvent extends BaseEvent<IUser> {}
