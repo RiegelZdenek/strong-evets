@@ -1,20 +1,18 @@
-# Strong Events 🎯
+# Strong Events
 
-A **strongly-typed event emitter** for TypeScript that uses class-based event definitions to provide complete type safety and an exceptional developer experience.
+A strongly-typed event emitter for TypeScript that uses class-based event definitions to provide type safety.
 
 [![npm version](https://badge.fury.io/js/@beautiful-types%2Fstrong-events.svg)](https://badge.fury.io/js/@beautiful-types%2Fstrong-events)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## ✨ Features
+## Features
 
-- **🔒 Complete Type Safety** - Event payloads are fully typed at compile time
-- **🎨 Intuitive API** - Uses classes as event identifiers instead of error-prone strings
-- **⚡ Excellent DX** - Full IntelliSense support for events and payloads
-- **🚀 Zero Dependencies** - Lightweight and fast
-- **🔄 Async Support** - Built-in support for both sync and async event handling
-- **🛡️ Error Resilience** - Individual listener failures don't break other listeners
-- **📦 Modern TypeScript** - Uses advanced TypeScript features for maximum safety
+- **🔒 Type Safety**: Event payloads are typed at compile time.
+- **🌳 Event Inheritance**: Create event hierarchies with automatic parent listener invocation.
+- **🌐 Wildcard Listening**: Listen to all events or entire event families.
+- **⚡ Async Support**: Built-in support for parallel async event handling.
+- **📦 Zero Dependencies**: Lightweight and dependency-free.
 
 ## 🚀 Quick Start
 
@@ -45,14 +43,14 @@ const emitter = new EventEmitter();
 
 // Register type-safe listeners
 emitter.on(UserCreatedEvent, (user) => {
-  console.log(`New user: ${user.name}`); // user is fully typed as IUser!
+  console.log(`New user: ${user.name}`); // user is fully typed as IUser
 });
 
 emitter.on(UserDeletedEvent, ({ userId }) => {
-  console.log(`User ${userId} deleted`); // Destructuring works perfectly
+  console.log(`User ${userId} deleted`);
 });
 
-// Emit events with full type checking
+// Emit events with type checking
 emitter.emit(UserCreatedEvent, {
   name: 'Alice',
   age: 30,
@@ -62,30 +60,34 @@ emitter.emit(UserCreatedEvent, {
 emitter.emit(UserDeletedEvent, { userId: '123' });
 ```
 
-## 🎯 Why Strong Events?
+## 🔍 Comparison with String-Based Emitters
 
-### Before (Traditional Event Emitters)
+### Traditional Event Emitters
+
+String-based event names are prone to typos and require manual type assertions.
 
 ```typescript
-// ❌ Stringly-typed - prone to typos
+// Prone to typos and requires casting
 emitter.on('user:created', (data: any) => {
   console.log(data.name); // No type safety, could be undefined
 });
 
-// ❌ Easy to make mistakes
-emitter.emit('user:create', userData); // Typo! Should be 'user:created'
+// A typo here ('user:create' instead of 'user:created') would fail silently.
+emitter.emit('user:create', userData);
 ```
 
-### After (Strong Events)
+### Strong Events
+
+Class-based events prevent typos and provide full type safety for payloads.
 
 ```typescript
-// ✅ Class-based - impossible to typo
+// The event name is a class, so typos are impossible.
 emitter.on(UserCreatedEvent, (user) => {
-  console.log(user.name); // Fully typed, IntelliSense works!
+  console.log(user.name); // `user` is fully typed, so autocompletion works.
 });
 
-// ✅ Type-safe emission
-emitter.emit(UserCreatedEvent, userData); // TypeScript catches mismatches
+// The compiler ensures the payload matches the event's type definition.
+emitter.emit(UserCreatedEvent, userData);
 ```
 
 ## 📚 API Reference
@@ -96,24 +98,24 @@ The main class for managing events.
 
 #### Methods
 
-- **`on<T>(event, listener)`** - Register an event listener
-- **`off<T>(event, listener)`** - Remove a specific listener
-- **`once<T>(event, listener)`** - Register a one-time listener
-- **`emit<T>(event, data)`** - Synchronously emit an event
-- **`emitAsync<T>(event, data)`** - Asynchronously emit an event
-- **`removeAllListeners<T>(event)`** - Remove all listeners for an event
+- **`on<T>(event, listener)`**: Register an event listener.
+- **`off<T>(event, listener)`**: Remove a specific listener.
+- **`once<T>(event, listener)`**: Register a one-time listener.
+- **`emit<T>(event, data)`**: Synchronously emit an event.
+- **`emitAsync<T>(event, data)`**: Asynchronously emit an event.
+- **`removeAllListeners<T>(event)`**: Remove all listeners for an event.
 
 ### BaseEvent<TArgs>
 
-Abstract base class for creating event types.
+The base class for creating event types.
 
 ```typescript
 class MyEvent extends BaseEvent<{ message: string }> {}
 ```
 
-## 🔄 Async Support
+## ⚡ Async Support
 
-Strong Events provides excellent async support:
+Listeners can be synchronous or asynchronous. When using `emitAsync`, all listeners are executed in parallel.
 
 ```typescript
 import { EventEmitter, BaseEvent } from '@beautiful-types/strong-events';
@@ -132,90 +134,85 @@ emitter.on(FileProcessedEvent, async (file) => {
   console.log(`Uploaded: ${file.filename}`);
 });
 
-// Emit to all listeners (parallel execution)
+// All listeners execute in parallel.
 await emitter.emitAsync(FileProcessedEvent, { filename: 'document.pdf' });
 ```
 
-## 🏗️ Advanced Patterns
+## 🌳 Event Inheritance
 
-### Domain Events
+Events can inherit from a base event, allowing for structured event hierarchies.
 
 ```typescript
-class OrderCreatedEvent extends BaseEvent<IOrder> {}
-class PaymentProcessedEvent extends BaseEvent<IPayment> {}
-
-class OrderService {
-  private events = new EventEmitter();
-  
-  get eventHandlers() {
-    return this.events.handlers;
-  }
-  
-  async createOrder(order: IOrder) {
-    // Business logic...
-    return this.events.emit(OrderCreatedEvent, order);
-  }
+interface OrderData {
+  orderId: string;
+  amount: number;
 }
 
-// External systems can subscribe
-const orderService = new OrderService();
-orderService.eventHandlers.on(OrderCreatedEvent, (order) => {
-  // Handle order creation
+// A base event for all order-related events
+class BaseOrderEvent extends BaseEvent<OrderData> {}
+
+// Specific order events that inherit from the base
+class OrderCreatedEvent extends BaseOrderEvent {}
+class OrderCancelledEvent extends BaseOrderEvent {}
+
+const emitter = new EventEmitter();
+
+// This listener will catch ALL events that inherit from BaseOrderEvent
+emitter.on(BaseOrderEvent, (order) => {
+  console.log(`Order event: ${order.orderId}`);
 });
+
+// This listener only catches OrderCreatedEvent
+emitter.on(OrderCreatedEvent, (order) => {
+  console.log(`Order created: ${order.orderId}`);
+});
+
+// Emitting OrderCreatedEvent will trigger BOTH listeners above.
+emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+// Output:
+// "Order event: 123"
+// "Order created: 123"
 ```
 
-### Event Aggregation
+### Wildcard Listening with BaseEvent
+
+You can listen to all events emitted by an emitter by subscribing to `BaseEvent`.
 
 ```typescript
-class EventAggregator {
-  private emitter = new EventEmitter();
-  
-  subscribe<T extends BaseEvent<any>>(
-    eventType: EventConstructor<T>,
-    handler: (data: ArgsExtractor<T>) => void
-  ) {
-    this.emitter.on(eventType, handler);
-    return () => this.emitter.off(eventType, handler); // Unsubscribe
-  }
-  
-  async publish<T extends BaseEvent<any>>(
-    eventType: EventConstructor<T>,
-    data: ArgsExtractor<T>
-  ) {
-    return this.emitter.emitAsync(eventType, data);
-  }
-}
+// A catch-all listener for logging or debugging
+emitter.on(BaseEvent, (data, eventType) => {
+  console.log(`An event of type ${eventType.name} was fired.`);
+});
+
+emitter.emit(UserCreatedEvent, { name: 'Alice', age: 30, email: 'a@a.com' });
+emitter.emit(OrderCreatedEvent, { orderId: '456', amount: 49.99 });
 ```
 
 ## 🛡️ Error Handling
 
-Strong Events is designed to be resilient:
+An error thrown in one listener will not prevent other listeners from running. The `emit` method returns `false` if one or more listeners threw an error.
 
 ```typescript
 emitter.on(MyEvent, (data) => {
-  throw new Error('Oops!'); // This won't break other listeners
+  throw new Error('This listener failed.');
 });
 
 emitter.on(MyEvent, (data) => {
-  console.log('This still runs!'); // ✅ Still executes
+  console.log('This listener still runs.');
 });
 
 const success = emitter.emit(MyEvent, { test: true });
-console.log(success); // false - indicates an error occurred
+console.log(success); // false
 ```
 
-## 📊 Performance
+## ⚙️ Performance
 
-Strong Events is designed for performance:
+- Uses Maps for O(1) listener lookup.
+- Automatically cleans up empty listener sets to manage memory.
 
-- **Lightweight**: No external dependencies
-- **Efficient**: Uses Maps for O(1) listener lookup
-- **Memory-safe**: Automatically cleans up empty listener arrays
-- **Hash-based**: Event names are hashed to prevent collisions
+## TypeScript Configuration
 
-## 🔧 TypeScript Configuration
-
-For the best experience, ensure your `tsconfig.json` includes:
+For best results, your `tsconfig.json` should have `strict` mode enabled.
 
 ```json
 {
@@ -227,21 +224,21 @@ For the best experience, ensure your `tsconfig.json` includes:
 }
 ```
 
-## 📦 Examples
+## Examples
 
-Check out the `/examples` directory for comprehensive examples:
+The `/examples` directory contains more usage patterns:
 
-- **`basic-usage.ts`** - Getting started
-- **`async-events.ts`** - Async/await patterns
-- **`advanced-patterns.ts`** - Domain events, sagas, event sourcing
+- **`basic-usage.ts`**
+- **`async-events.ts`**
+- **`advanced-patterns.ts`**
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome. Please feel free to submit a Pull Request.
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ---
 

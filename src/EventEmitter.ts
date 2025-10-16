@@ -11,7 +11,8 @@ export type ArgsExtractor<T> = T extends BaseEvent<infer U> ? U : never
 export type EventConstructor<T extends BaseEvent<any>> = (new () => T) & { eventName: string };
 
 /**
- * Abstract base class for creating strongly-typed events
+ * Base class for creating strongly-typed events
+ * Can also be used directly as BaseEvent<any> for wildcard event listening
  * @template TArgs The type of data this event carries
  * 
  * @example
@@ -19,14 +20,19 @@ export type EventConstructor<T extends BaseEvent<any>> = (new () => T) & { event
  * interface IUser { name: string; age: number; }
  * class UserCreatedEvent extends BaseEvent<IUser> {}
  * 
- * // Usage
+ * // Specific event listening
  * emitter.on(UserCreatedEvent, (user) => {
  *   console.log(user.name); // Fully typed!
  * });
+ * 
+ * // Wildcard event listening
+ * emitter.on(BaseEvent, (data) => {
+ *   console.log('Any event:', data); // Catches all events
+ * });
  * ```
  */
-export abstract class BaseEvent<TArgs>{
-    private static _eventName?: string;
+export class BaseEvent<TArgs = any>{
+    private static _eventNameCache = new Map<Function, string>();
     
     /**
      * This property is used for type inference only and is not meant to be accessed at runtime.
@@ -40,11 +46,12 @@ export abstract class BaseEvent<TArgs>{
      * @returns A unique string identifier for this event type
      */
     static get eventName(): string {
-        if (!this._eventName) {
+        if (!this._eventNameCache.has(this)) {
             const hash = this.generateHash(this.name);
-            this._eventName = `${this.name}(${hash})`;
+            const eventName = `${this.name}(${hash})`;
+            this._eventNameCache.set(this, eventName);
         }
-        return this._eventName;
+        return this._eventNameCache.get(this)!;
     }
     
     /**
@@ -99,6 +106,40 @@ export interface IEmitsEvents{
  */
 export class EventEmitter implements IEmitsEvents {
     private listeners: Map<string, Function[]> = new Map();
+
+    /**
+     * Gathers all listeners from the inheritance chain for a given event
+     * @template T The event type that extends BaseEvent
+     * @param event The event class constructor
+     * @returns Array of all listeners from the event and its parent classes (including BaseEvent)
+     */
+    private gatherInheritanceListeners<T extends BaseEvent<any>>(event: EventConstructor<T>): Function[] {
+        const allListeners: Function[] = [];
+        
+        let currentClass = event;
+        do {
+            const eventName = currentClass.eventName;
+            if (this.listeners.has(eventName)) {
+                const listeners = this.listeners.get(eventName) || [];
+                allListeners.push(...listeners);
+            }
+
+            // If we've just processed BaseEvent, stop the loop
+            if (currentClass.eventName === BaseEvent.eventName) {
+                break;
+            }
+
+            // Move to parent class (may become undefined and end the loop)
+            const parentClass = Object.getPrototypeOf(currentClass.prototype)?.constructor;
+            if (parentClass && parentClass.eventName) {
+                currentClass = parentClass;
+            } else {
+                break;
+            }
+        } while (currentClass);
+        
+        return allListeners;
+    }
 
     /**
      * Registers an event listener for the specified event type
@@ -184,6 +225,7 @@ export class EventEmitter implements IEmitsEvents {
 
     /**
      * Synchronously emits an event to all registered listeners
+     * Calls all listeners from the inheritance chain
      * @template T The event type that extends BaseEvent
      * @param event The event class constructor
      * @param args The event payload/arguments
@@ -198,28 +240,28 @@ export class EventEmitter implements IEmitsEvents {
      * ```
      */
     emit<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): boolean {
-        const eventName = event.eventName;
-        if(this.listeners.has(eventName)){
-            const listeners = this.listeners.get(eventName) || [];
-            let hasError = false;
-            
-            for (const listener of listeners) {
-                try {
-                    listener(args);
-                } catch (error) {
-                    console.error(`Error occurred while emitting event ${eventName}:`, error);
-                    hasError = true;
-                }
-            }
-            
-            return !hasError;
+        const allListeners = this.gatherInheritanceListeners(event);
+        
+        if (allListeners.length === 0) {
+            return false;
         }
-        return false;
+        
+        let hasError = false;
+        for (const listener of allListeners) {
+            try {
+                listener(args);
+            } catch (error) {
+                console.error(`Error occurred while emitting event:`, error);
+                hasError = true;
+            }
+        }
+
+        return !hasError;
     }
 
     /**
      * Asynchronously emits an event to all registered listeners
-     * All listeners are executed in parallel, and individual listener errors are caught and logged
+     * All listeners (including inherited ones) are executed in parallel
      * @template T The event type that extends BaseEvent
      * @param event The event class constructor
      * @param args The event payload/arguments
@@ -234,17 +276,20 @@ export class EventEmitter implements IEmitsEvents {
      * ```
      */
     async emitAsync<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): Promise<boolean> {
-        const eventName = event.eventName;
-        if(this.listeners.has(eventName)){
-            const promises = this.listeners.get(eventName)?.map(listener => 
-                Promise.resolve().then(() => listener(args)).catch(error => {
-                    console.error(`Error occurred while emitting event ${eventName}:`, error);
-                })
-            ) || [];
-            await Promise.all(promises);
-            return true;
+        const allListeners = this.gatherInheritanceListeners(event);
+        
+        if (allListeners.length === 0) {
+            return false;
         }
-        return false;
+        
+        // Execute all listeners in parallel
+        const promises = allListeners.map(listener => 
+            Promise.resolve().then(() => listener(args)).catch(error => {
+                console.error(`Error occurred while emitting event asynchronously:`, error);
+            })
+        );
+        await Promise.all(promises);
+        return true;
     }
 
     /**

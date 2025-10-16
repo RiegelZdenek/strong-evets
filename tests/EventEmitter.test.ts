@@ -251,3 +251,232 @@ describe('BaseEvent', () => {
     expect(eventName).toMatch(/TestEvent\([a-f0-9]{4}\)/);
   });
 });
+
+describe('Event Inheritance', () => {
+  let emitter: EventEmitter;
+
+  interface IOrderData {
+    orderId: string;
+    amount: number;
+  }
+
+  class BaseOrderEvent extends BaseEvent<IOrderData> {}
+  class OrderCreatedEvent extends BaseOrderEvent {}
+  class OrderCancelledEvent extends BaseOrderEvent {}
+  
+  // Three-level inheritance
+  class BaseNotificationEvent extends BaseEvent<{ message: string }> {}
+  class AdminNotificationEvent extends BaseNotificationEvent {}
+  class CriticalAdminEvent extends AdminNotificationEvent {}
+
+  beforeEach(() => {
+    emitter = new EventEmitter();
+  });
+
+  describe('Two-level inheritance', () => {
+    it('should call parent class listeners when emitting child event', () => {
+      const parentListener = jest.fn();
+      const childListener = jest.fn();
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(parentListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 });
+      expect(childListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 });
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(childListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call child listeners when emitting parent event', () => {
+      const parentListener = jest.fn();
+      const childListener = jest.fn();
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.emit(BaseOrderEvent, { orderId: '456', amount: 49.99 });
+
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(childListener).not.toHaveBeenCalled();
+    });
+
+    it('should work with multiple child events sharing same parent', () => {
+      const parentListener = jest.fn();
+      const createdListener = jest.fn();
+      const cancelledListener = jest.fn();
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, createdListener);
+      emitter.on(OrderCancelledEvent, cancelledListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(createdListener).toHaveBeenCalledTimes(1);
+      expect(cancelledListener).not.toHaveBeenCalled();
+
+      emitter.emit(OrderCancelledEvent, { orderId: '456', amount: 49.99 });
+
+      expect(parentListener).toHaveBeenCalledTimes(2);
+      expect(createdListener).toHaveBeenCalledTimes(1);
+      expect(cancelledListener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('Three-level inheritance', () => {
+    it('should call all ancestor listeners', () => {
+      const baseListener = jest.fn();
+      const adminListener = jest.fn();
+      const criticalListener = jest.fn();
+
+      emitter.on(BaseNotificationEvent, baseListener);
+      emitter.on(AdminNotificationEvent, adminListener);
+      emitter.on(CriticalAdminEvent, criticalListener);
+
+      emitter.emit(CriticalAdminEvent, { message: 'System failure' });
+
+      expect(baseListener).toHaveBeenCalledWith({ message: 'System failure' });
+      expect(adminListener).toHaveBeenCalledWith({ message: 'System failure' });
+      expect(criticalListener).toHaveBeenCalledWith({ message: 'System failure' });
+      expect(baseListener).toHaveBeenCalledTimes(1);
+      expect(adminListener).toHaveBeenCalledTimes(1);
+      expect(criticalListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should respect inheritance chain for middle-level events', () => {
+      const baseListener = jest.fn();
+      const adminListener = jest.fn();
+      const criticalListener = jest.fn();
+
+      emitter.on(BaseNotificationEvent, baseListener);
+      emitter.on(AdminNotificationEvent, adminListener);
+      emitter.on(CriticalAdminEvent, criticalListener);
+
+      emitter.emit(AdminNotificationEvent, { message: 'Admin alert' });
+
+      expect(baseListener).toHaveBeenCalledTimes(1);
+      expect(adminListener).toHaveBeenCalledTimes(1);
+      expect(criticalListener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Wildcard listening with BaseEvent', () => {
+    it('should call BaseEvent listener for any event', () => {
+      const wildcardListener = jest.fn();
+      const specificListener = jest.fn();
+
+      emitter.on(BaseEvent, wildcardListener);
+      emitter.on(OrderCreatedEvent, specificListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '789', amount: 199.99 });
+
+      expect(wildcardListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 });
+      expect(specificListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 });
+    });
+
+    it('should call BaseEvent listener for direct BaseEvent emission', () => {
+      const wildcardListener = jest.fn();
+
+      emitter.on(BaseEvent, wildcardListener);
+      emitter.emit(BaseEvent, { test: 'data' });
+
+      expect(wildcardListener).toHaveBeenCalledWith({ test: 'data' });
+      expect(wildcardListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should work as catch-all for multiple event types', () => {
+      const wildcardListener = jest.fn();
+
+      emitter.on(BaseEvent, wildcardListener);
+
+      emitter.emit(TestEvent, { message: 'test', value: 1 });
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 50 });
+      emitter.emit(ComplexEvent, {
+        user: { id: '1', name: 'Alice' },
+        metadata: { timestamp: new Date(), source: 'test' }
+      });
+
+      expect(wildcardListener).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Async inheritance', () => {
+    it('should call all inherited listeners in parallel', async () => {
+      const callLog: string[] = [];
+
+      emitter.on(BaseOrderEvent, async (order) => {
+        await new Promise(resolve => setTimeout(resolve, 20));
+        callLog.push('parent');
+      });
+
+      emitter.on(OrderCreatedEvent, async (order) => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        callLog.push('child');
+      });
+
+      const startTime = Date.now();
+      await emitter.emitAsync(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+      const duration = Date.now() - startTime;
+
+      expect(callLog).toContain('parent');
+      expect(callLog).toContain('child');
+      expect(duration).toBeLessThan(40); // Should be ~20ms (parallel), not 30ms (sequential)
+    });
+
+    it('should call BaseEvent listeners in parallel with specific listeners', async () => {
+      const callLog: string[] = [];
+
+      emitter.on(BaseEvent, async () => {
+        await new Promise(resolve => setTimeout(resolve, 15));
+        callLog.push('base');
+      });
+
+      emitter.on(OrderCreatedEvent, async () => {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        callLog.push('specific');
+      });
+
+      const startTime = Date.now();
+      await emitter.emitAsync(OrderCreatedEvent, { orderId: '456', amount: 49.99 });
+      const duration = Date.now() - startTime;
+
+      expect(callLog).toContain('base');
+      expect(callLog).toContain('specific');
+      expect(duration).toBeLessThan(35); // Should be ~15ms (parallel), not 25ms (sequential)
+    });
+  });
+
+  describe('Inheritance with once', () => {
+    it('should work with once listeners on parent classes', () => {
+      const parentListener = jest.fn();
+      const childListener = jest.fn();
+
+      emitter.once(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+      emitter.emit(OrderCreatedEvent, { orderId: '456', amount: 49.99 });
+
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(childListener).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Inheritance with removeAllListeners', () => {
+    it('should remove listeners independently for parent and child', () => {
+      const parentListener = jest.fn();
+      const childListener = jest.fn();
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.removeAllListeners(OrderCreatedEvent);
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(childListener).not.toHaveBeenCalled();
+    });
+  });
+});
