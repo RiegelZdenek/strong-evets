@@ -28,10 +28,12 @@ userEventEmitter.on(UserCreatedEvent, (user) => {
     console.log('   Age:', user.age);
 });
 
-userEventEmitter.on(UserUpdatedEvent, ({ oldUser, newUser }) => {
+// You can optionally use emitInfo for metadata
+userEventEmitter.on(UserUpdatedEvent, ({ oldUser, newUser }, emitInfo) => {
     console.log('📝 User updated:');
     console.log('   From:', oldUser.name);
     console.log('   To:', newUser.name);
+    console.log('   Event:', emitInfo?.event.name);
 });
 
 userEventEmitter.on(UserDeletedEvent, ({ userId }) => {

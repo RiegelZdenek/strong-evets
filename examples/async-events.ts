@@ -1,4 +1,4 @@
-import { EventEmitter, BaseEvent } from '../src';
+import { EventEmitter, BaseEvent, EmitInfo } from '../src';
 
 // Async event handling example
 interface IFileOperation {
@@ -19,8 +19,9 @@ class TaskCompletedEvent extends BaseEvent<{ taskId: string; result: any }> {}
 const asyncEmitter = new EventEmitter();
 
 // Register async event listeners
-asyncEmitter.on(FileUploadedEvent, async (file) => {
+asyncEmitter.on(FileUploadedEvent, async (file, emitInfo) => {
     console.log(`🔄 Processing file: ${file.filename}`);
+    console.log(`   Event: ${emitInfo?.event.name}`);
     
     // Simulate async file processing
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -28,16 +29,19 @@ asyncEmitter.on(FileUploadedEvent, async (file) => {
     console.log(`✅ File processed: ${file.filename} (${file.size} bytes)`);
 });
 
-asyncEmitter.on(FileUploadedEvent, async (file) => {
+asyncEmitter.on(FileUploadedEvent, async (file, emitInfo) => {
     console.log(`📊 Analyzing file: ${file.filename}`);
     
     // Simulate async analysis
     await new Promise(resolve => setTimeout(resolve, 500));
     
     console.log(`📈 Analysis complete for: ${file.filename}`);
+    
+    // Note: Async listeners ignore propagation control
+    // This is intentional to allow parallel execution
 });
 
-asyncEmitter.on(ApiRequestEvent, async (request) => {
+asyncEmitter.on(ApiRequestEvent, async (request, emitInfo) => {
     console.log(`🌐 Making ${request.method} request to ${request.endpoint}`);
     
     try {
@@ -50,7 +54,7 @@ asyncEmitter.on(ApiRequestEvent, async (request) => {
 });
 
 // Error handling in async context
-asyncEmitter.on(TaskCompletedEvent, async (task) => {
+asyncEmitter.on(TaskCompletedEvent, async (task, emitInfo) => {
     console.log(`📋 Task ${task.taskId} completed`);
     
     // Simulate an error in one listener
@@ -96,12 +100,12 @@ async function runAsyncExample() {
 // Mixed sync/async listeners
 class MixedEvent extends BaseEvent<{ message: string }> {}
 
-asyncEmitter.on(MixedEvent, (data) => {
+asyncEmitter.on(MixedEvent, (data, emitInfo) => {
     // Synchronous listener
     console.log(`🔄 Sync listener: ${data.message}`);
 });
 
-asyncEmitter.on(MixedEvent, async (data) => {
+asyncEmitter.on(MixedEvent, async (data, emitInfo) => {
     // Asynchronous listener
     await new Promise(resolve => setTimeout(resolve, 100));
     console.log(`⚡ Async listener: ${data.message}`);

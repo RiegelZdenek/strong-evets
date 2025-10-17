@@ -1,4 +1,4 @@
-import { EventEmitter, BaseEvent } from '../src';
+import { EventEmitter, BaseEvent, EmitInfo } from '../src';
 
 /**
  * Event Inheritance Example
@@ -145,12 +145,12 @@ class EventBus {
   private emitter = new EventEmitter();
 
   // Domain events
-  subscribeToAllOrders(handler: (order: OrderData) => void) {
+  subscribeToAllOrders(handler: (order: OrderData, emitInfo?: EmitInfo<BaseOrderEvent>) => void) {
     this.emitter.on(BaseOrderEvent, handler);
     return () => this.emitter.off(BaseOrderEvent, handler);
   }
 
-  subscribeToOrderCreated(handler: (order: OrderData) => void) {
+  subscribeToOrderCreated(handler: (order: OrderData, emitInfo?: EmitInfo<OrderCreatedEvent>) => void) {
     this.emitter.on(OrderCreatedEvent, handler);
     return () => this.emitter.off(OrderCreatedEvent, handler);
   }
@@ -167,13 +167,17 @@ class EventBus {
 const eventBus = new EventBus();
 
 // Subscribe to all orders (for analytics)
-const unsubscribe = eventBus.subscribeToAllOrders((order) => {
+const unsubscribe = eventBus.subscribeToAllOrders((order, emitInfo) => {
   console.log(`📈 [Analytics Dashboard] Order ${order.orderId} tracked`);
+  console.log(`   Event type: ${emitInfo?.event.name}`);
 });
 
 // Subscribe to specific event (for order processing)
-eventBus.subscribeToOrderCreated((order) => {
+eventBus.subscribeToOrderCreated((order, emitInfo) => {
   console.log(`🏭 [Fulfillment] Processing order ${order.orderId}`);
+  // Stop propagation to prevent parent listeners from executing
+  emitInfo?.stopEventPropagation();
+  console.log('   ⚠️  Propagation stopped - parent listeners will not run');
 });
 
 // Publish events
@@ -199,4 +203,6 @@ console.log('✅ Parent listeners catch child events automatically');
 console.log('✅ Child listeners do NOT catch parent events');
 console.log('✅ BaseEvent acts as a wildcard to catch ALL events');
 console.log('✅ Async listeners in inheritance chain execute in parallel');
+console.log('✅ stopEventPropagation() prevents parent listeners from executing');
+console.log('✅ EmitInfo provides metadata about the current event emission');
 console.log('✅ Perfect for analytics, logging, and event bus patterns\n');

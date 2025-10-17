@@ -1,5 +1,4 @@
-import { EventEmitter, BaseEvent } from '../src';
-import { ArgsExtractor, EventConstructor } from '../src/EventEmitter';
+import { EventEmitter, BaseEvent, EmitInfo, ArgsExtractor, EventConstructor } from '../src';
 
 // Advanced patterns and use cases
 
@@ -80,7 +79,7 @@ class EventAggregator {
     // Generic subscribe method
     subscribe<T extends BaseEvent<any>>(
         eventType: EventConstructor<T>,
-        handler: (data: ArgsExtractor<T>) => void | Promise<void>
+        handler: (data: ArgsExtractor<T>, emitInfo?: EmitInfo<T>) => void | Promise<void>
     ) {
         this.emitter.on(eventType, handler);
         
@@ -105,8 +104,9 @@ class OrderSaga {
     
     private setupSaga() {
         // When order is created, process payment
-        this.eventAggregator.subscribe(OrderCreatedEvent, async (order) => {
+        this.eventAggregator.subscribe(OrderCreatedEvent, async (order, emitInfo) => {
             console.log(`🎭 Saga: Order created, initiating payment for ${order.orderId}`);
+            console.log(`   Event: ${emitInfo?.event.name}`);
             
             // Simulate payment processing
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -120,7 +120,7 @@ class OrderSaga {
         });
         
         // When payment is processed, ship the order
-        this.eventAggregator.subscribe(PaymentProcessedEvent, async (payment) => {
+        this.eventAggregator.subscribe(PaymentProcessedEvent, async (payment, emitInfo) => {
             console.log(`🎭 Saga: Payment processed, shipping order ${payment.orderId}`);
             
             // Simulate shipping preparation
@@ -139,9 +139,11 @@ class OrderSaga {
         });
         
         // When order is shipped, log completion
-        this.eventAggregator.subscribe(OrderShippedEvent, (shipping) => {
+        this.eventAggregator.subscribe(OrderShippedEvent, (shipping, emitInfo) => {
             console.log(`🎭 Saga: Order ${shipping.orderId} shipped successfully!`);
             console.log(`   Estimated delivery: ${shipping.estimatedDelivery.toDateString()}`);
+            // Stop propagation if needed to prevent other handlers from running
+            // emitInfo?.stopEventPropagation();
         });
     }
 }
@@ -189,7 +191,7 @@ class EventStore {
     
     subscribe<T extends BaseEvent<any>>(
         eventType: EventConstructor<T>,
-        handler: (data: ArgsExtractor<T>) => void | Promise<void>
+        handler: (data: ArgsExtractor<T>, emitInfo?: EmitInfo<T>) => void | Promise<void>
     ) {
         this.eventEmitter.on(eventType, handler);
     }
@@ -204,11 +206,12 @@ async function runAdvancedPatterns() {
     const orderService = new OrderService();
     
     // External systems can subscribe to domain events
-    orderService.eventHandlers.on(OrderCreatedEvent, (order) => {
+    orderService.eventHandlers.on(OrderCreatedEvent, (order, emitInfo) => {
         console.log(`   📊 Analytics: New order ${order.orderId} worth $${order.total}`);
+        console.log(`      Event details: ${emitInfo?.event.name}`);
     });
     
-    orderService.eventHandlers.on(PaymentProcessedEvent, (payment) => {
+    orderService.eventHandlers.on(PaymentProcessedEvent, (payment, emitInfo) => {
         console.log(`   💰 Finance: Payment ${payment.transactionId} processed`);
     });
     
@@ -221,8 +224,9 @@ async function runAdvancedPatterns() {
     console.log('\n3. Event Sourcing Pattern:');
     const eventStore = new EventStore();
     
-    eventStore.subscribe(OrderCreatedEvent, (order) => {
+    eventStore.subscribe(OrderCreatedEvent, (order, emitInfo) => {
         console.log(`   📚 Read Model: Updating order projection for ${order.orderId}`);
+        console.log(`      Source event: ${emitInfo?.event.name}`);
     });
     
     // Execute the workflow
