@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2025-10-18
+
+### Added
+- **EmitInfo**: New optional second parameter for event handlers containing emission metadata
+- **Event Propagation Control**: Added `stopEventPropagation()` method to prevent events from bubbling to parent event classes
+- New `EmitInfo` class with `event`, `shouldContinuePropagation` properties and `stopEventPropagation()` method
+- Comprehensive documentation for propagation control features in README
+- 19 new tests covering EmitInfo and propagation control functionality
+
+### Changed
+- Event handlers now receive optional `emitInfo` parameter: `(args, emitInfo?) => void`
+- Return value semantics: `emit()` and `emitAsync()` now return `true` if no errors occurred, `false` otherwise (previously based on listener count)
+- Refactored codebase into modular files for better maintainability:
+  - `BaseEvent.ts` - Base event class and core types
+  - `EmitInfo.ts` - Emission information and event handler types
+  - `EventEmitter.ts` - Main emitter logic (reduced from 339 to 217 lines)
+  - `interfaces.ts` - Interface definitions
+- Improved async listener handling to properly await async functions
+
+### Fixed
+- Async event emission now correctly awaits async listener functions
+
+### Documentation
+- Updated README with EmitInfo and propagation control examples
+- Added clear notes about propagation control limitations in async mode
+- Improved API documentation clarity
+
+### Notes
+- **Backward Compatible**: The `emitInfo` parameter is optional, so existing code continues to work
+- Propagation control only works with synchronous `emit()`, not `emitAsync()` (by design)
+
 ## [1.0.0] - 2025-10-06
 
 ### Added
