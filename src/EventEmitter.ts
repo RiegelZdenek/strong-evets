@@ -1,87 +1,5 @@
-/**
- * Utility type that extracts the argument type from a BaseEvent class
- * @template T The BaseEvent type to extract arguments from
- */
-export type ArgsExtractor<T> = T extends BaseEvent<infer U> ? U : never
-
-/**
- * Type definition for event constructor with static eventName property
- * @template T The event type
- */
-export type EventConstructor<T extends BaseEvent<any>> = (new () => T) & { eventName: string };
-
-/**
- * Base class for creating strongly-typed events
- * Can also be used directly as BaseEvent<any> for wildcard event listening
- * @template TArgs The type of data this event carries
- * 
- * @example
- * ```typescript
- * interface IUser { name: string; age: number; }
- * class UserCreatedEvent extends BaseEvent<IUser> {}
- * 
- * // Specific event listening
- * emitter.on(UserCreatedEvent, (user) => {
- *   console.log(user.name); // Fully typed!
- * });
- * 
- * // Wildcard event listening
- * emitter.on(BaseEvent, (data) => {
- *   console.log('Any event:', data); // Catches all events
- * });
- * ```
- */
-export class BaseEvent<TArgs = any>{
-    private static _eventNameCache = new Map<Function, string>();
-    
-    /**
-     * This property is used for type inference only and is not meant to be accessed at runtime.
-     * It helps TypeScript understand the argument type for this event.
-     */
-    private _!: TArgs;
-    
-    /**
-     * Gets the unique event name for this event class.
-     * Generates a hash-based identifier to prevent collisions.
-     * @returns A unique string identifier for this event type
-     */
-    static get eventName(): string {
-        if (!this._eventNameCache.has(this)) {
-            const hash = this.generateHash(this.name);
-            const eventName = `${this.name}(${hash})`;
-            this._eventNameCache.set(this, eventName);
-        }
-        return this._eventNameCache.get(this)!;
-    }
-    
-    /**
-     * Generates a hash from the class name to create unique event identifiers
-     * @param name The class name to hash
-     * @returns A 4-character hexadecimal hash
-     */
-    private static generateHash(name: string): string {
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            const char = name.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return Math.abs(hash).toString(16).substring(0, 4);
-    }
-}
-
-/**
- * Interface defining the contract for objects that can emit events
- * @template T The event type that extends BaseEvent
- */
-export interface IEmitsEvents{
-    on<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void;
-    off<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void;
-    once<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void;
-    emit<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): boolean;
-    emitAsync<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): Promise<boolean>;
-    removeAllListeners<T extends BaseEvent<any>>(event: EventConstructor<T>): void;
-}
+import { BaseEvent, EventConstructor, ArgsExtractor } from './BaseEvent';
+import { EmitInfo, EventHandler } from './EmitInfo';
 
 /**
  * A strongly-typed event emitter that uses class-based event definitions
@@ -104,32 +22,41 @@ export interface IEmitsEvents{
  * emitter.emit(UserCreatedEvent, { name: 'Alice', age: 30 });
  * ```
  */
-export class EventEmitter implements IEmitsEvents {
+export class EventEmitter{
     private listeners: Map<string, Function[]> = new Map();
 
     /**
      * Gathers all listeners from the inheritance chain for a given event
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @returns Array of all listeners from the event and its parent classes (including BaseEvent)
+     * @param emitInfo When provided, allows listeners to control propagation
      */
-    private gatherInheritanceListeners<T extends BaseEvent<any>>(event: EventConstructor<T>): Function[] {
-        const allListeners: Function[] = [];
-        
+    private *gatherInheritanceListeners<T extends BaseEvent<any>>(
+        event: EventConstructor<T>, 
+        emitInfo: EmitInfo<T> = null as any
+    ): Generator<Function> {
         let currentClass = event;
+        
         do {
             const eventName = currentClass.eventName;
             if (this.listeners.has(eventName)) {
                 const listeners = this.listeners.get(eventName) || [];
-                allListeners.push(...listeners);
+                
+                // Yield each listener at this level
+                for (const listener of listeners) {
+                    yield listener;
+                }
+                
+                // After yielding all listeners at this level, check propagation
+                if (emitInfo !== null && !emitInfo.shouldContinuePropagation) {
+                    return; // Stop the generator
+                }
             }
 
-            // If we've just processed BaseEvent, stop the loop
+            // Stop if we've reached BaseEvent
             if (currentClass.eventName === BaseEvent.eventName) {
                 break;
             }
 
-            // Move to parent class (may become undefined and end the loop)
+            // Move to parent class
             const parentClass = Object.getPrototypeOf(currentClass.prototype)?.constructor;
             if (parentClass && parentClass.eventName) {
                 currentClass = parentClass;
@@ -137,24 +64,26 @@ export class EventEmitter implements IEmitsEvents {
                 break;
             }
         } while (currentClass);
-        
-        return allListeners;
     }
 
     /**
      * Registers an event listener for the specified event type
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @param listener The callback function to execute when the event is emitted
      * 
      * @example
      * ```typescript
+     * // Simple handler
      * emitter.on(UserCreatedEvent, (user) => {
      *   console.log('New user:', user.name);
      * });
+     * 
+     * // With emit control
+     * emitter.on(UserCreatedEvent, (user, emitInfo) => {
+     *   console.log('New user:', user.name);
+     *   emitInfo.stopEventPropagation();
+     * });
      * ```
      */
-    on<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void {
+    on<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: EventHandler<T>): void {
         const eventName = event.eventName;
         if(!this.listeners.has(eventName)){
             this.listeners.set(eventName, []);
@@ -164,18 +93,15 @@ export class EventEmitter implements IEmitsEvents {
 
     /**
      * Removes a specific event listener for the specified event type
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @param listener The specific callback function to remove
      * 
      * @example
      * ```typescript
      * const handler = (user) => console.log(user.name);
      * emitter.on(UserCreatedEvent, handler);
-     * emitter.off(UserCreatedEvent, handler); // Remove specific listener
+     * emitter.off(UserCreatedEvent, handler);
      * ```
      */
-    off<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void {
+    off<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: EventHandler<T>): void {
         const eventName = event.eventName;
         if(this.listeners.has(eventName)){
             const filtered = this.listeners.get(eventName)?.filter(l => l !== listener) || [];
@@ -188,21 +114,18 @@ export class EventEmitter implements IEmitsEvents {
     }
 
     /**
-     * Registers a one-time event listener that will be automatically removed after being called once
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @param listener The callback function to execute once when the event is emitted
+     * Registers a one-time event listener that automatically removes itself after being called
      * 
      * @example
      * ```typescript
      * emitter.once(UserCreatedEvent, (user) => {
      *   console.log('First user created:', user.name);
-     * }); // This will only fire once
+     * });
      * ```
      */
-    once<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: (args: ArgsExtractor<T>) => void): void {
-        const wrappedListener = (args: ArgsExtractor<T>) => {
-            listener(args);
+    once<T extends BaseEvent<any>>(event: EventConstructor<T>, listener: EventHandler<T>): void {
+        const wrappedListener: EventHandler<T> = (args, emitInfo) => {
+            listener(args, emitInfo);
             this.off(event, wrappedListener);
         };
         this.on(event, wrappedListener);
@@ -210,12 +133,10 @@ export class EventEmitter implements IEmitsEvents {
 
     /**
      * Removes all listeners for a specific event type
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
      * 
      * @example
      * ```typescript
-     * emitter.removeAllListeners(UserCreatedEvent); // Remove all UserCreatedEvent listeners
+     * emitter.removeAllListeners(UserCreatedEvent);
      * ```
      */
     removeAllListeners<T extends BaseEvent<any>>(event: EventConstructor<T>): void {
@@ -225,31 +146,21 @@ export class EventEmitter implements IEmitsEvents {
 
     /**
      * Synchronously emits an event to all registered listeners
-     * Calls all listeners from the inheritance chain
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @param args The event payload/arguments
-     * @returns true if the event had listeners and was emitted successfully, false otherwise
+     * @returns true if all listeners succeeded, false if any threw an error
      * 
      * @example
      * ```typescript
      * const success = emitter.emit(UserCreatedEvent, { name: 'Alice', age: 30 });
-     * if (!success) {
-     *   console.log('No listeners or emission failed');
-     * }
      * ```
      */
     emit<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): boolean {
-        const allListeners = this.gatherInheritanceListeners(event);
-        
-        if (allListeners.length === 0) {
-            return false;
-        }
+        //create emit info object
+        const emitInfo = new EmitInfo<T>(event);
         
         let hasError = false;
-        for (const listener of allListeners) {
+        for (const listener of this.gatherInheritanceListeners(event, emitInfo)) {
             try {
-                listener(args);
+                listener(args, emitInfo);
             } catch (error) {
                 console.error(`Error occurred while emitting event:`, error);
                 hasError = true;
@@ -260,36 +171,37 @@ export class EventEmitter implements IEmitsEvents {
     }
 
     /**
-     * Asynchronously emits an event to all registered listeners
-     * All listeners (including inherited ones) are executed in parallel
-     * @template T The event type that extends BaseEvent
-     * @param event The event class constructor
-     * @param args The event payload/arguments
-     * @returns Promise that resolves to true if the event had listeners, false otherwise
+     * Asynchronously emits an event to all registered listeners in parallel
+     * Note: stopEventPropagation() has no effect in async mode
+     * @returns Promise resolving to true if all listeners succeeded, false if any threw an error
      * 
      * @example
      * ```typescript
      * const success = await emitter.emitAsync(UserCreatedEvent, { name: 'Alice', age: 30 });
-     * if (success) {
-     *   console.log('Event emitted to all listeners');
-     * }
      * ```
      */
     async emitAsync<T extends BaseEvent<any>>(event: EventConstructor<T>, args: ArgsExtractor<T>): Promise<boolean> {
-        const allListeners = this.gatherInheritanceListeners(event);
+        const emitInfo = new EmitInfo<T>(event);
+        const promises: Promise<boolean>[] = [];
         
-        if (allListeners.length === 0) {
-            return false;
+        for (const listener of this.gatherInheritanceListeners(event)) {
+            const promise = Promise.resolve()
+                .then(async () => {
+                    await listener(args, emitInfo);
+                    return true;
+                })
+                .catch(error => {
+                    console.error(`Error occurred while emitting event asynchronously:`, error);
+                    return false;
+                });
+            
+            promises.push(promise);
         }
         
-        // Execute all listeners in parallel
-        const promises = allListeners.map(listener => 
-            Promise.resolve().then(() => listener(args)).catch(error => {
-                console.error(`Error occurred while emitting event asynchronously:`, error);
-            })
-        );
-        await Promise.all(promises);
-        return true;
+        const results = await Promise.all(promises);
+        
+        // Return true if all listeners succeeded (or if there were no listeners)
+        return results.every(success => success);
     }
 
     /**

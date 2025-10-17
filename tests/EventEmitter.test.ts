@@ -31,15 +31,15 @@ describe('EventEmitter', () => {
       const result = emitter.emit(TestEvent, testData);
 
       expect(result).toBe(true);
-      expect(mockListener).toHaveBeenCalledWith(testData);
+      expect(mockListener).toHaveBeenCalledWith(testData, expect.anything());
       expect(mockListener).toHaveBeenCalledTimes(1);
     });
 
-    it('should return false when no listeners are registered', () => {
+    it('should return true when no listeners are registered', () => {
       const testData: ITestData = { message: 'test', value: 42 };
       const result = emitter.emit(TestEvent, testData);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true); // No errors occurred
     });
 
     it('should handle multiple listeners for the same event', () => {
@@ -53,8 +53,8 @@ describe('EventEmitter', () => {
       const result = emitter.emit(TestEvent, testData);
 
       expect(result).toBe(true);
-      expect(listener1).toHaveBeenCalledWith(testData);
-      expect(listener2).toHaveBeenCalledWith(testData);
+      expect(listener1).toHaveBeenCalledWith(testData, expect.anything());
+      expect(listener2).toHaveBeenCalledWith(testData, expect.anything());
     });
 
     it('should handle complex data types', () => {
@@ -67,7 +67,7 @@ describe('EventEmitter', () => {
       emitter.on(ComplexEvent, mockListener);
       emitter.emit(ComplexEvent, complexData);
 
-      expect(mockListener).toHaveBeenCalledWith(complexData);
+      expect(mockListener).toHaveBeenCalledWith(complexData, expect.anything());
     });
   });
 
@@ -84,7 +84,7 @@ describe('EventEmitter', () => {
       emitter.emit(TestEvent, testData);
 
       expect(listener1).not.toHaveBeenCalled();
-      expect(listener2).toHaveBeenCalledWith(testData);
+      expect(listener2).toHaveBeenCalledWith(testData, expect.anything());
     });
 
     it('should remove all listeners for an event', () => {
@@ -98,7 +98,7 @@ describe('EventEmitter', () => {
 
       const result = emitter.emit(TestEvent, testData);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true); // No errors occurred
       expect(listener1).not.toHaveBeenCalled();
       expect(listener2).not.toHaveBeenCalled();
     });
@@ -123,7 +123,7 @@ describe('EventEmitter', () => {
       emitter.emit(TestEvent, testData);
 
       expect(mockListener).toHaveBeenCalledTimes(1);
-      expect(mockListener).toHaveBeenCalledWith(testData);
+      expect(mockListener).toHaveBeenCalledWith(testData, expect.anything());
     });
 
     it('should work alongside regular listeners', () => {
@@ -179,12 +179,14 @@ describe('EventEmitter', () => {
       const result = await emitter.emitAsync(TestEvent, testData);
 
       expect(result).toBe(true);
-      expect(asyncListener).toHaveBeenCalledWith(testData);
-      expect(syncListener).toHaveBeenCalledWith(testData);
+      expect(asyncListener).toHaveBeenCalledWith(testData, expect.anything());
+      expect(syncListener).toHaveBeenCalledWith(testData, expect.anything());
     });
 
     it('should handle async listener errors gracefully', async () => {
-      const errorListener = jest.fn().mockRejectedValue(new Error('Async error'));
+      const errorListener = jest.fn(() => {
+        throw new Error('Async error');
+      });
       const normalListener = jest.fn();
       const testData: ITestData = { message: 'test', value: 42 };
 
@@ -196,7 +198,7 @@ describe('EventEmitter', () => {
 
       const result = await emitter.emitAsync(TestEvent, testData);
 
-      expect(result).toBe(true); // Async version continues execution
+      expect(result).toBe(false); // Should return false when listener throws error
       expect(errorListener).toHaveBeenCalled();
       expect(normalListener).toHaveBeenCalled();
       expect(consoleSpy).toHaveBeenCalled();
@@ -204,11 +206,11 @@ describe('EventEmitter', () => {
       consoleSpy.mockRestore();
     });
 
-    it('should return false for async emission with no listeners', async () => {
+    it('should return true for async emission with no listeners', async () => {
       const testData: ITestData = { message: 'test', value: 42 };
       const result = await emitter.emitAsync(TestEvent, testData);
 
-      expect(result).toBe(false);
+      expect(result).toBe(true); // Empty array passes .every() check
     });
   });
 
@@ -222,12 +224,12 @@ describe('EventEmitter', () => {
       const result = emit(TestEvent, testData);
 
       expect(result).toBe(true);
-      expect(mockListener).toHaveBeenCalledWith(testData);
+      expect(mockListener).toHaveBeenCalledWith(testData, expect.anything());
 
       off(TestEvent, mockListener);
       const result2 = emit(TestEvent, testData);
 
-      expect(result2).toBe(false);
+      expect(result2).toBe(true); // No errors occurred
     });
   });
 });
@@ -283,8 +285,8 @@ describe('Event Inheritance', () => {
 
       emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
 
-      expect(parentListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 });
-      expect(childListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 });
+      expect(parentListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 }, expect.anything());
+      expect(childListener).toHaveBeenCalledWith({ orderId: '123', amount: 99.99 }, expect.anything());
       expect(parentListener).toHaveBeenCalledTimes(1);
       expect(childListener).toHaveBeenCalledTimes(1);
     });
@@ -337,9 +339,9 @@ describe('Event Inheritance', () => {
 
       emitter.emit(CriticalAdminEvent, { message: 'System failure' });
 
-      expect(baseListener).toHaveBeenCalledWith({ message: 'System failure' });
-      expect(adminListener).toHaveBeenCalledWith({ message: 'System failure' });
-      expect(criticalListener).toHaveBeenCalledWith({ message: 'System failure' });
+      expect(baseListener).toHaveBeenCalledWith({ message: 'System failure' }, expect.anything());
+      expect(adminListener).toHaveBeenCalledWith({ message: 'System failure' }, expect.anything());
+      expect(criticalListener).toHaveBeenCalledWith({ message: 'System failure' }, expect.anything());
       expect(baseListener).toHaveBeenCalledTimes(1);
       expect(adminListener).toHaveBeenCalledTimes(1);
       expect(criticalListener).toHaveBeenCalledTimes(1);
@@ -372,8 +374,8 @@ describe('Event Inheritance', () => {
 
       emitter.emit(OrderCreatedEvent, { orderId: '789', amount: 199.99 });
 
-      expect(wildcardListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 });
-      expect(specificListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 });
+      expect(wildcardListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 }, expect.anything());
+      expect(specificListener).toHaveBeenCalledWith({ orderId: '789', amount: 199.99 }, expect.anything());
     });
 
     it('should call BaseEvent listener for direct BaseEvent emission', () => {
@@ -382,7 +384,7 @@ describe('Event Inheritance', () => {
       emitter.on(BaseEvent, wildcardListener);
       emitter.emit(BaseEvent, { test: 'data' });
 
-      expect(wildcardListener).toHaveBeenCalledWith({ test: 'data' });
+      expect(wildcardListener).toHaveBeenCalledWith({ test: 'data' }, expect.anything());
       expect(wildcardListener).toHaveBeenCalledTimes(1);
     });
 
@@ -477,6 +479,302 @@ describe('Event Inheritance', () => {
 
       expect(parentListener).toHaveBeenCalledTimes(1);
       expect(childListener).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('EmitInfo and Propagation Control', () => {
+  let emitter: EventEmitter;
+
+  interface IOrderData {
+    orderId: string;
+    amount: number;
+  }
+
+  class BaseOrderEvent extends BaseEvent<IOrderData> {}
+  class OrderCreatedEvent extends BaseOrderEvent {}
+  class SpecificOrderEvent extends OrderCreatedEvent {}
+
+  beforeEach(() => {
+    emitter = new EventEmitter();
+  });
+
+  describe('EmitInfo parameter', () => {
+    it('should pass EmitInfo object to listeners', () => {
+      const listener = jest.fn();
+      emitter.on(TestEvent, listener);
+      emitter.emit(TestEvent, { message: 'test', value: 42 });
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      const [args, emitInfo] = listener.mock.calls[0];
+      expect(args).toEqual({ message: 'test', value: 42 });
+      expect(emitInfo).toBeDefined();
+      expect(emitInfo.event).toBe(TestEvent);
+    });
+
+    it('should work with optional EmitInfo parameter', () => {
+      const listener = jest.fn((args) => {
+        // Only use args, ignore emitInfo
+        expect(args.message).toBe('test');
+      });
+      
+      emitter.on(TestEvent, listener);
+      emitter.emit(TestEvent, { message: 'test', value: 42 });
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should provide EmitInfo with correct event constructor', () => {
+      const listener = jest.fn((args, emitInfo) => {
+        expect(emitInfo?.event).toBe(OrderCreatedEvent);
+        expect(emitInfo?.event.eventName).toBe(OrderCreatedEvent.eventName);
+      });
+
+      emitter.on(OrderCreatedEvent, listener);
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+    });
+  });
+
+  describe('stopEventPropagation', () => {
+    it('should stop propagation to parent event classes', () => {
+      const baseListener = jest.fn();
+      const parentListener = jest.fn();
+      const childListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+
+      emitter.on(BaseEvent, baseListener);
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).not.toHaveBeenCalled();
+      expect(baseListener).not.toHaveBeenCalled();
+    });
+
+    it('should stop propagation after all listeners at current level execute', () => {
+      const parentListener = jest.fn();
+      const childListener1 = jest.fn();
+      const childListener2 = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+      const childListener3 = jest.fn();
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener1);
+      emitter.on(OrderCreatedEvent, childListener2);
+      emitter.on(OrderCreatedEvent, childListener3);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(childListener1).toHaveBeenCalledTimes(1);
+      expect(childListener2).toHaveBeenCalledTimes(1);
+      expect(childListener3).toHaveBeenCalledTimes(1);
+      expect(parentListener).not.toHaveBeenCalled();
+    });
+
+    it('should work with three-level inheritance', () => {
+      const baseListener = jest.fn();
+      const parentListener = jest.fn();
+      const childListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+
+      emitter.on(BaseOrderEvent, baseListener);
+      emitter.on(OrderCreatedEvent, parentListener);
+      emitter.on(SpecificOrderEvent, childListener);
+
+      emitter.emit(SpecificOrderEvent, { orderId: '123', amount: 99.99 });
+
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).not.toHaveBeenCalled();
+      expect(baseListener).not.toHaveBeenCalled();
+    });
+
+    it('should allow propagation to continue if not stopped', () => {
+      const baseListener = jest.fn();
+      const parentListener = jest.fn();
+      const childListener = jest.fn((args, emitInfo) => {
+        // Don't call stopEventPropagation
+        expect(emitInfo?.shouldContinuePropagation).toBe(true);
+      });
+
+      emitter.on(BaseEvent, baseListener);
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(baseListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should stop at intermediate level when requested', () => {
+      const baseListener = jest.fn();
+      const parentListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+      const childListener = jest.fn();
+
+      emitter.on(BaseEvent, baseListener);
+      emitter.on(OrderCreatedEvent, parentListener);
+      emitter.on(SpecificOrderEvent, childListener);
+
+      emitter.emit(SpecificOrderEvent, { orderId: '123', amount: 99.99 });
+
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(baseListener).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('stopEventPropagation with once', () => {
+    it('should work with once listeners', () => {
+      const parentListener = jest.fn();
+      const childListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.once(OrderCreatedEvent, childListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+      emitter.emit(OrderCreatedEvent, { orderId: '456', amount: 49.99 });
+
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).toHaveBeenCalledTimes(1); // Called on second emit
+    });
+  });
+
+  describe('stopEventPropagation with async', () => {
+    it('should NOT stop propagation in async mode', async () => {
+      const baseListener = jest.fn();
+      const parentListener = jest.fn();
+      const childListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation(); // This should have no effect
+      });
+
+      emitter.on(BaseEvent, baseListener);
+      emitter.on(BaseOrderEvent, parentListener);
+      emitter.on(OrderCreatedEvent, childListener);
+
+      await emitter.emitAsync(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      // All listeners should be called because propagation control doesn't work in async
+      expect(childListener).toHaveBeenCalledTimes(1);
+      expect(parentListener).toHaveBeenCalledTimes(1);
+      expect(baseListener).toHaveBeenCalledTimes(1);
+    });
+
+    it('should receive EmitInfo in async mode even though propagation control is disabled', async () => {
+      const listener = jest.fn((args, emitInfo) => {
+        expect(emitInfo).toBeDefined();
+        expect(emitInfo?.event).toBe(TestEvent);
+        emitInfo?.stopEventPropagation(); // Should do nothing
+      });
+
+      emitter.on(TestEvent, listener);
+      await emitter.emitAsync(TestEvent, { message: 'test', value: 42 });
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('shouldContinuePropagation property', () => {
+    it('should be true by default', () => {
+      const listener = jest.fn((args, emitInfo) => {
+        expect(emitInfo?.shouldContinuePropagation).toBe(true);
+      });
+
+      emitter.on(TestEvent, listener);
+      emitter.emit(TestEvent, { message: 'test', value: 42 });
+    });
+
+    it('should be false after calling stopEventPropagation', () => {
+      const listener = jest.fn((args, emitInfo) => {
+        expect(emitInfo?.shouldContinuePropagation).toBe(true);
+        emitInfo?.stopEventPropagation();
+        expect(emitInfo?.shouldContinuePropagation).toBe(false);
+      });
+
+      emitter.on(TestEvent, listener);
+      emitter.emit(TestEvent, { message: 'test', value: 42 });
+    });
+  });
+
+  describe('EmitInfo with error handling', () => {
+    it('should pass EmitInfo even when listener throws error', () => {
+      const errorListener = jest.fn((args, emitInfo) => {
+        expect(emitInfo).toBeDefined();
+        throw new Error('Test error');
+      });
+      const normalListener = jest.fn((args, emitInfo) => {
+        expect(emitInfo).toBeDefined();
+      });
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      emitter.on(TestEvent, errorListener);
+      emitter.on(TestEvent, normalListener);
+
+      const result = emitter.emit(TestEvent, { message: 'test', value: 42 });
+
+      expect(result).toBe(false);
+      expect(errorListener).toHaveBeenCalled();
+      expect(normalListener).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should propagate even if earlier listener throws', () => {
+      const errorListener = jest.fn((args, emitInfo) => {
+        throw new Error('Test error');
+      });
+      const parentListener = jest.fn();
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      emitter.on(OrderCreatedEvent, errorListener);
+      emitter.on(BaseOrderEvent, parentListener);
+
+      emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+
+      expect(errorListener).toHaveBeenCalled();
+      expect(parentListener).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+  });
+
+  describe('Return value with propagation', () => {
+    it('should return true when propagation is stopped but no errors occur', () => {
+      const listener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+      });
+
+      emitter.on(TestEvent, listener);
+      const result = emitter.emit(TestEvent, { message: 'test', value: 42 });
+
+      expect(result).toBe(true);
+    });
+
+    it('should return false when any listener throws error even with stopped propagation', () => {
+      const errorListener = jest.fn((args, emitInfo) => {
+        emitInfo?.stopEventPropagation();
+        throw new Error('Test error');
+      });
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
+      emitter.on(TestEvent, errorListener);
+      const result = emitter.emit(TestEvent, { message: 'test', value: 42 });
+
+      expect(result).toBe(false);
+
+      consoleSpy.mockRestore();
     });
   });
 });

@@ -10,7 +10,7 @@ A strongly-typed event emitter for TypeScript that uses class-based event defini
 
 - **🔒 Type Safety**: Event payloads are typed at compile time.
 - **🌳 Event Inheritance**: Create event hierarchies with automatic parent listener invocation.
-- **🌐 Wildcard Listening**: Listen to all events or entire event families.
+- **�🌐 Wildcard Listening**: Listen to all events or entire event families.
 - **⚡ Async Support**: Built-in support for parallel async event handling.
 - **📦 Zero Dependencies**: Lightweight and dependency-free.
 
@@ -46,8 +46,10 @@ emitter.on(UserCreatedEvent, (user) => {
   console.log(`New user: ${user.name}`); // user is fully typed as IUser
 });
 
-emitter.on(UserDeletedEvent, ({ userId }) => {
+// Optional second parameter provides emit information
+emitter.on(UserDeletedEvent, ({ userId }, emitInfo) => {
   console.log(`User ${userId} deleted`);
+  // emitInfo contains metadata about the current emission
 });
 
 // Emit events with type checking
@@ -98,12 +100,25 @@ The main class for managing events.
 
 #### Methods
 
-- **`on<T>(event, listener)`**: Register an event listener.
+- **`on<T>(event, listener)`**: Register an event listener. Listener receives `(data, emitInfo?)`.
 - **`off<T>(event, listener)`**: Remove a specific listener.
 - **`once<T>(event, listener)`**: Register a one-time listener.
-- **`emit<T>(event, data)`**: Synchronously emit an event.
-- **`emitAsync<T>(event, data)`**: Asynchronously emit an event.
+- **`emit<T>(event, data)`**: Synchronously emit an event. Returns `true` if no errors occurred.
+- **`emitAsync<T>(event, data)`**: Asynchronously emit an event in parallel. Returns `true` if all listeners succeeded.
 - **`removeAllListeners<T>(event)`**: Remove all listeners for an event.
+
+### EmitInfo
+
+The optional second parameter passed to listeners containing information about the current emission.
+
+#### Properties
+
+- **`event`**: The event constructor that was emitted.
+- **`shouldContinuePropagation`**: Whether propagation should continue to parent event classes.
+
+#### Methods
+
+- **`stopEventPropagation()`**: Stops propagation to parent event classes (only works with `emit()`, not `emitAsync()`).
 
 ### BaseEvent<TArgs>
 
@@ -170,8 +185,36 @@ emitter.on(OrderCreatedEvent, (order) => {
 // Emitting OrderCreatedEvent will trigger BOTH listeners above.
 emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
 // Output:
-// "Order event: 123"
 // "Order created: 123"
+// "Order event: 123"
+```
+
+### Stopping Event Propagation
+
+You can prevent events from propagating to parent event classes using `emitInfo.stopEventPropagation()`.
+
+```typescript
+// This listener will stop propagation to BaseOrderEvent
+emitter.on(OrderCreatedEvent, (order, emitInfo) => {
+  console.log(`Order created: ${order.orderId}`);
+  emitInfo?.stopEventPropagation(); // Parent listeners won't be called
+});
+
+emitter.on(BaseOrderEvent, (order) => {
+  console.log(`This won't be called`);
+});
+
+emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+// Output: "Order created: 123"
+// The BaseOrderEvent listener is NOT called
+```
+
+**Note:** Propagation control only works with synchronous `emit()`. When using `emitAsync()`, all listeners are collected before execution begins, so `stopEventPropagation()` has no effect.
+
+```typescript
+// In async mode, propagation cannot be stopped
+await emitter.emitAsync(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
+// Both listeners will execute in parallel regardless of stopEventPropagation()
 ```
 
 ### Wildcard Listening with BaseEvent
@@ -180,17 +223,20 @@ You can listen to all events emitted by an emitter by subscribing to `BaseEvent`
 
 ```typescript
 // A catch-all listener for logging or debugging
-emitter.on(BaseEvent, (data, eventType) => {
-  console.log(`An event of type ${eventType.name} was fired.`);
+emitter.on(BaseEvent, (data, emitInfo) => {
+  console.log(`Event fired: ${emitInfo?.event.name}`);
 });
 
 emitter.emit(UserCreatedEvent, { name: 'Alice', age: 30, email: 'a@a.com' });
 emitter.emit(OrderCreatedEvent, { orderId: '456', amount: 49.99 });
+// Output:
+// "Event fired: UserCreatedEvent"
+// "Event fired: OrderCreatedEvent"
 ```
 
 ## 🛡️ Error Handling
 
-An error thrown in one listener will not prevent other listeners from running. The `emit` method returns `false` if one or more listeners threw an error.
+An error thrown in one listener will not prevent other listeners from running. The `emit` method returns `false` if any listener throws an error.
 
 ```typescript
 emitter.on(MyEvent, (data) => {
@@ -202,7 +248,11 @@ emitter.on(MyEvent, (data) => {
 });
 
 const success = emitter.emit(MyEvent, { test: true });
-console.log(success); // false
+console.log(success); // false - an error occurred
+
+// For async, returns false if any listener fails
+const asyncSuccess = await emitter.emitAsync(MyEvent, { test: true });
+console.log(asyncSuccess); // false - an error occurred
 ```
 
 ## ⚙️ Performance
