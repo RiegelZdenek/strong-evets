@@ -105,7 +105,8 @@ The main class for managing events.
 - **`once<T>(event, listener)`**: Register a one-time listener.
 - **`emit<T>(event, data)`**: Synchronously emit an event. Returns `true` if no errors occurred.
 - **`emitAsync<T>(event, data)`**: Asynchronously emit an event in parallel. Returns `true` if all listeners succeeded.
-- **`removeAllListeners<T>(event)`**: Remove all listeners for an event.
+- **`removeAllListenersFor<T>(event)`**: Remove all listeners for a specific event type.
+- **`removeAllListeners()`**: Remove all listeners for all events.
 
 ### EmitInfo
 

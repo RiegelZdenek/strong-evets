@@ -94,7 +94,7 @@ describe('EventEmitter', () => {
 
       emitter.on(TestEvent, listener1);
       emitter.on(TestEvent, listener2);
-      emitter.removeAllListeners(TestEvent);
+      emitter.removeAllListenersFor(TestEvent);
 
       const result = emitter.emit(TestEvent, testData);
 
@@ -109,6 +109,26 @@ describe('EventEmitter', () => {
       expect(() => {
         emitter.off(TestEvent, listener);
       }).not.toThrow();
+    });
+
+    it('should remove all listeners for all events', () => {
+      const testListener = jest.fn();
+      const complexListener = jest.fn();
+      const testData: ITestData = { message: 'test', value: 42 };
+      const complexData: IComplexData = {
+        user: { id: '123', name: 'Alice' },
+        metadata: { timestamp: new Date(), source: 'test' }
+      };
+
+      emitter.on(TestEvent, testListener);
+      emitter.on(ComplexEvent, complexListener);
+      emitter.removeAllListeners();
+
+      emitter.emit(TestEvent, testData);
+      emitter.emit(ComplexEvent, complexData);
+
+      expect(testListener).not.toHaveBeenCalled();
+      expect(complexListener).not.toHaveBeenCalled();
     });
   });
 
@@ -474,7 +494,7 @@ describe('Event Inheritance', () => {
       emitter.on(BaseOrderEvent, parentListener);
       emitter.on(OrderCreatedEvent, childListener);
 
-      emitter.removeAllListeners(OrderCreatedEvent);
+      emitter.removeAllListenersFor(OrderCreatedEvent);
       emitter.emit(OrderCreatedEvent, { orderId: '123', amount: 99.99 });
 
       expect(parentListener).toHaveBeenCalledTimes(1);

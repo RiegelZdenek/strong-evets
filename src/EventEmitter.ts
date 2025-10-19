@@ -136,12 +136,16 @@ export class EventEmitter{
      * 
      * @example
      * ```typescript
-     * emitter.removeAllListeners(UserCreatedEvent);
+     * emitter.removeAllListenersFor(UserCreatedEvent);
      * ```
      */
-    removeAllListeners<T extends BaseEvent<any>>(event: EventConstructor<T>): void {
+    removeAllListenersFor<T extends BaseEvent<any>>(event: EventConstructor<T>): void {
         const eventName = event.eventName;
         this.listeners.delete(eventName);
+    }
+
+    removeAllListeners(): void {
+        this.listeners.clear();
     }
 
     /**
@@ -224,6 +228,6 @@ export class EventEmitter{
         once: this.once.bind(this),
         emit: this.emit.bind(this),
         emitAsync: this.emitAsync.bind(this),
-        removeAllListeners: this.removeAllListeners.bind(this),
+        removeAllListeners: this.removeAllListenersFor.bind(this),
     };
 }
