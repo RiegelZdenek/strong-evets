@@ -35,10 +35,13 @@ export class BaseEvent<TArgs = any>{
     private static _eventNameCache = new Map<Function, string>();
     
     /**
-     * This property is used for type inference only and is not meant to be accessed at runtime.
+     * This method is used for type inference only and is not meant to be called at runtime.
      * It helps TypeScript understand the argument type for this event.
+     * @internal
      */
-    private _!: TArgs;
+    protected __getArgsType(): TArgs {
+        throw new Error('This method is for type inference only and should never be called');
+    }
     
     /**
      * Gets the unique event name for this event class.
